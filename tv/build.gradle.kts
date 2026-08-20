@@ -5,13 +5,11 @@ plugins {
 
 android {
     namespace = "com.example.bioregistro.tv"
-    compileSdk {
-        version = release(37)
-    }
 
     defaultConfig {
         applicationId = "com.example.bioregistro.tv"
-        minSdk = 21
+        compileSdk = 37
+        minSdk = 23
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
