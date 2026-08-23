@@ -22,9 +22,10 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun HomeScreen(
+    observationCount: Int = 0,
     onRegisterClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {}
-) {
+){
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -70,7 +71,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "0",
+                    text = observationCount.toString(),
                     fontSize = 40.sp,
                     fontWeight = FontWeight.Bold
                 )

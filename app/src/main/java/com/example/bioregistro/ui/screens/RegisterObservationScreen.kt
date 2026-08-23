@@ -1,5 +1,8 @@
 package com.example.bioregistro.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -22,17 +25,48 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bioregistro.model.BirdObservation
+import java.util.UUID
 
 @Composable
 fun RegisterObservationScreen(
     onBackClick: () -> Unit = {},
-    onSaveClick: () -> Unit = {}
+    onSaveClick: (BirdObservation) -> Unit = {}
 ) {
-    var species by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("") }
-    var observations by remember { mutableStateOf("") }
+
+    var species by remember {
+        mutableStateOf("")
+    }
+
+    var quantity by remember {
+        mutableStateOf("")
+    }
+
+    var location by remember {
+        mutableStateOf("")
+    }
+
+    var date by remember {
+        mutableStateOf("")
+    }
+
+    var observations by remember {
+        mutableStateOf("")
+    }
+
+    var imageUri by remember {
+        mutableStateOf<Uri?>(null)
+    }
+
+    // Abre la galería del dispositivo para seleccionar una fotografía
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+
+        if (uri != null) {
+            imageUri = uri
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -54,41 +88,63 @@ fun RegisterObservationScreen(
 
         OutlinedTextField(
             value = species,
-            onValueChange = { species = it },
-            label = { Text("Especie del ave") },
+            onValueChange = {
+                species = it
+            },
+            label = {
+                Text("Especie del ave")
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
         OutlinedTextField(
             value = quantity,
-            onValueChange = { quantity = it },
-            label = { Text("Cantidad") },
+            onValueChange = {
+                quantity = it
+            },
+            label = {
+                Text("Cantidad")
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
         OutlinedTextField(
             value = location,
-            onValueChange = { location = it },
-            label = { Text("Ubicación") },
+            onValueChange = {
+                location = it
+            },
+            label = {
+                Text("Ubicación")
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
         OutlinedTextField(
             value = date,
-            onValueChange = { date = it },
-            label = { Text("Fecha") },
-            placeholder = { Text("19/08/2026") },
+            onValueChange = {
+                date = it
+            },
+            label = {
+                Text("Fecha")
+            },
+            placeholder = {
+                Text("22/08/2026")
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
         OutlinedTextField(
             value = observations,
-            onValueChange = { observations = it },
-            label = { Text("Observaciones") },
+            onValueChange = {
+                observations = it
+            },
+            label = {
+                Text("Observaciones")
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp)
@@ -96,30 +152,67 @@ fun RegisterObservationScreen(
 
         OutlinedButton(
             onClick = {
-                // Después agregaremos selección de fotografía
+                imagePickerLauncher.launch("image/*")
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Seleccionar fotografía")
+
+            Text(
+                text = if (imageUri == null) {
+                    "Seleccionar fotografía"
+                } else {
+                    "Fotografía seleccionada ✓"
+                }
+            )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
         Button(
-            onClick = onSaveClick,
+            onClick = {
+
+                val observation = BirdObservation(
+                    id = UUID.randomUUID().toString(),
+                    species = species.trim(),
+                    quantity = quantity.toIntOrNull() ?: 0,
+                    location = location.trim(),
+                    date = date.trim(),
+                    observations = observations.trim(),
+                    imageUri = imageUri?.toString() ?: "",
+                    temperature = 0.0,
+                    weather = ""
+                )
+
+                onSaveClick(observation)
+            },
             modifier = Modifier.fillMaxWidth(),
-            enabled = species.isNotBlank() &&
-                    quantity.isNotBlank() &&
-                    location.isNotBlank()
+
+            // El botón solamente se habilita cuando los datos obligatorios
+            // y la fotografía han sido agregados.
+            enabled =
+                species.isNotBlank() &&
+                        quantity.toIntOrNull() != null &&
+                        quantity.toIntOrNull()!! > 0 &&
+                        location.isNotBlank() &&
+                        date.isNotBlank() &&
+                        imageUri != null
         ) {
-            Text("Guardar avistamiento")
+
+            Text(
+                text = "Guardar avistamiento"
+            )
         }
 
         OutlinedButton(
             onClick = onBackClick,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Regresar")
+
+            Text(
+                text = "Regresar"
+            )
         }
     }
 }
