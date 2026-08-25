@@ -3,9 +3,10 @@ package com.example.bioregistro.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.net.Uri
 import android.os.Build
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -45,27 +46,18 @@ import java.util.Locale
 
 @Composable
 fun RegisterObservationScreen(
-
     onBackClick: () -> Unit = {},
-
-    onSaveClick:
-        (BirdObservation) -> Unit
+    onSaveClick: (BirdObservation) -> Unit
 ) {
 
-    val context =
-        LocalContext.current
+    val context = LocalContext.current
 
     /*
      * GPS
      */
-    val fusedLocationClient =
-        remember {
-
-            LocationServices
-                .getFusedLocationProviderClient(
-                    context
-                )
-        }
+    val fusedLocationClient = remember {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
 
     /*
      * FORMULARIO
@@ -90,7 +82,6 @@ fun RegisterObservationScreen(
      * FECHA AUTOMÁTICA
      */
     var date by remember {
-
         mutableStateOf(
             SimpleDateFormat(
                 "dd/MM/yyyy",
@@ -105,32 +96,22 @@ fun RegisterObservationScreen(
      * COORDENADAS
      */
     var latitude by remember {
-        mutableStateOf<Double?>(
-            null
-        )
+        mutableStateOf<Double?>(null)
     }
 
     var longitude by remember {
-        mutableStateOf<Double?>(
-            null
-        )
+        mutableStateOf<Double?>(null)
     }
 
     /*
      * FOTOGRAFÍA
      */
     var selectedBitmap by remember {
-
-        mutableStateOf<Bitmap?>(
-            null
-        )
+        mutableStateOf<Bitmap?>(null)
     }
 
     var showPhotoDialog by remember {
-
-        mutableStateOf(
-            false
-        )
+        mutableStateOf(false)
     }
 
     /*
@@ -138,86 +119,55 @@ fun RegisterObservationScreen(
      */
     val cameraLauncher =
         rememberLauncherForActivityResult(
-
             contract =
-                ActivityResultContracts
-                    .TakePicturePreview()
-
+                ActivityResultContracts.TakePicturePreview()
         ) { bitmap ->
 
             if (bitmap != null) {
 
                 selectedBitmap =
-                    bitmap
+                    resizeBitmapForPreview(
+                        bitmap = bitmap
+                    )
             }
         }
 
     /*
      * GALERÍA
+     *
+     * IMPORTANTE:
+     * La fotografía se reduce antes de colocarla
+     * en Compose para evitar el error:
+     *
+     * Canvas: trying to draw too large
      */
     val galleryLauncher =
         rememberLauncherForActivityResult(
-
             contract =
-                ActivityResultContracts
-                    .GetContent()
-
+                ActivityResultContracts.GetContent()
         ) { uri ->
 
             if (uri != null) {
 
                 try {
 
-                    selectedBitmap =
+                    val bitmap =
+                        loadReducedBitmap(
+                            context = context,
+                            uri = uri
+                        )
 
-                        if (
-                            Build.VERSION.SDK_INT >=
-                            Build.VERSION_CODES.P
-                        ) {
+                    if (bitmap != null) {
 
-                            val source =
-                                ImageDecoder
-                                    .createSource(
-                                        context
-                                            .contentResolver,
-
-                                        uri
-                                    )
-
-                            ImageDecoder
-                                .decodeBitmap(
-                                    source
-                                ) { decoder, _, _ ->
-
-                                    decoder.allocator =
-                                        ImageDecoder
-                                            .ALLOCATOR_SOFTWARE
-                                }
-
-                        } else {
-
-                            @Suppress(
-                                "DEPRECATION"
+                        selectedBitmap =
+                            resizeBitmapForPreview(
+                                bitmap = bitmap
                             )
+                    }
 
-                            MediaStore
-                                .Images
-                                .Media
-                                .getBitmap(
+                } catch (exception: Exception) {
 
-                                    context
-                                        .contentResolver,
-
-                                    uri
-                                )
-                        }
-
-                } catch (
-                    exception: Exception
-                ) {
-
-                    exception
-                        .printStackTrace()
+                    exception.printStackTrace()
                 }
             }
         }
@@ -227,11 +177,9 @@ fun RegisterObservationScreen(
      */
     val locationPermissionLauncher =
         rememberLauncherForActivityResult(
-
             contract =
                 ActivityResultContracts
                     .RequestMultiplePermissions()
-
         ) { permissions ->
 
             val fineGranted =
@@ -254,9 +202,7 @@ fun RegisterObservationScreen(
                 val finePermission =
                     ContextCompat
                         .checkSelfPermission(
-
                             context,
-
                             Manifest.permission
                                 .ACCESS_FINE_LOCATION
                         )
@@ -264,40 +210,30 @@ fun RegisterObservationScreen(
                 val coarsePermission =
                     ContextCompat
                         .checkSelfPermission(
-
                             context,
-
                             Manifest.permission
                                 .ACCESS_COARSE_LOCATION
                         )
 
                 if (
                     finePermission ==
-                    PackageManager
-                        .PERMISSION_GRANTED ||
+                    PackageManager.PERMISSION_GRANTED ||
 
                     coarsePermission ==
-                    PackageManager
-                        .PERMISSION_GRANTED
+                    PackageManager.PERMISSION_GRANTED
                 ) {
 
                     fusedLocationClient
                         .lastLocation
+                        .addOnSuccessListener { result ->
 
-                        .addOnSuccessListener {
-                                locationResult ->
-
-                            if (
-                                locationResult != null
-                            ) {
+                            if (result != null) {
 
                                 latitude =
-                                    locationResult
-                                        .latitude
+                                    result.latitude
 
                                 longitude =
-                                    locationResult
-                                        .longitude
+                                    result.longitude
                             }
                         }
                 }
@@ -305,14 +241,11 @@ fun RegisterObservationScreen(
         }
 
     /*
-     * DIÁLOGO DE FOTOGRAFÍA
+     * DIÁLOGO PARA FOTOGRAFÍA
      */
-    if (
-        showPhotoDialog
-    ) {
+    if (showPhotoDialog) {
 
         AlertDialog(
-
             onDismissRequest = {
 
                 showPhotoDialog =
@@ -322,14 +255,15 @@ fun RegisterObservationScreen(
             title = {
 
                 Text(
-                    "Agregar fotografía"
+                    text = "Agregar fotografía"
                 )
             },
 
             text = {
 
                 Text(
-                    "Selecciona cómo deseas agregar la fotografía del ave."
+                    text =
+                        "Selecciona cómo deseas agregar la fotografía del ave."
                 )
             },
 
@@ -342,14 +276,12 @@ fun RegisterObservationScreen(
                             false
 
                         cameraLauncher
-                            .launch(
-                                null
-                            )
+                            .launch(null)
                     }
                 ) {
 
                     Text(
-                        "Tomar foto"
+                        text = "Tomar foto"
                     )
                 }
             },
@@ -363,14 +295,12 @@ fun RegisterObservationScreen(
                             false
 
                         galleryLauncher
-                            .launch(
-                                "image/*"
-                            )
+                            .launch("image/*")
                     }
                 ) {
 
                     Text(
-                        "Galería"
+                        text = "Galería"
                     )
                 }
             }
@@ -381,7 +311,6 @@ fun RegisterObservationScreen(
      * PANTALLA
      */
     Column(
-
         modifier =
             Modifier
                 .fillMaxSize()
@@ -399,6 +328,9 @@ fun RegisterObservationScreen(
                 )
     ) {
 
+        /*
+         * TÍTULO
+         */
         Text(
             text =
                 "Registrar avistamiento",
@@ -411,29 +343,34 @@ fun RegisterObservationScreen(
         )
 
         Text(
-            "Ingresa la información del ave observada."
+            text =
+                "Ingresa la información del ave observada."
         )
 
         /*
          * ESPECIE
          */
         OutlinedTextField(
-
             value =
                 species,
 
             onValueChange = {
-                species = it
+
+                species =
+                    it
             },
 
             label = {
+
                 Text(
-                    "Especie del ave"
+                    text =
+                        "Especie del ave"
                 )
             },
 
             modifier =
-                Modifier.fillMaxWidth(),
+                Modifier
+                    .fillMaxWidth(),
 
             singleLine =
                 true
@@ -443,17 +380,17 @@ fun RegisterObservationScreen(
          * CANTIDAD
          */
         OutlinedTextField(
-
             value =
                 quantity,
 
-            onValueChange = {
-                    newValue ->
+            onValueChange = { newValue ->
 
+                /*
+                 * Solo permite números.
+                 */
                 if (
                     newValue
-                        .all {
-                                character ->
+                        .all { character ->
 
                             character
                                 .isDigit()
@@ -468,7 +405,8 @@ fun RegisterObservationScreen(
             label = {
 
                 Text(
-                    "Cantidad"
+                    text =
+                        "Cantidad"
                 )
             },
 
@@ -484,7 +422,6 @@ fun RegisterObservationScreen(
          * UBICACIÓN
          */
         OutlinedTextField(
-
             value =
                 location,
 
@@ -497,7 +434,8 @@ fun RegisterObservationScreen(
             label = {
 
                 Text(
-                    "Ubicación"
+                    text =
+                        "Ubicación"
                 )
             },
 
@@ -510,18 +448,15 @@ fun RegisterObservationScreen(
         )
 
         /*
-         * BOTÓN GPS
+         * GPS
          */
         OutlinedButton(
-
             onClick = {
 
                 val finePermission =
                     ContextCompat
                         .checkSelfPermission(
-
                             context,
-
                             Manifest.permission
                                 .ACCESS_FINE_LOCATION
                         )
@@ -529,32 +464,24 @@ fun RegisterObservationScreen(
                 val coarsePermission =
                     ContextCompat
                         .checkSelfPermission(
-
                             context,
-
                             Manifest.permission
                                 .ACCESS_COARSE_LOCATION
                         )
 
                 if (
                     finePermission ==
-                    PackageManager
-                        .PERMISSION_GRANTED ||
+                    PackageManager.PERMISSION_GRANTED ||
 
                     coarsePermission ==
-                    PackageManager
-                        .PERMISSION_GRANTED
+                    PackageManager.PERMISSION_GRANTED
                 ) {
 
                     fusedLocationClient
                         .lastLocation
+                        .addOnSuccessListener { result ->
 
-                        .addOnSuccessListener {
-                                result ->
-
-                            if (
-                                result != null
-                            ) {
+                            if (result != null) {
 
                                 latitude =
                                     result.latitude
@@ -568,9 +495,7 @@ fun RegisterObservationScreen(
 
                     locationPermissionLauncher
                         .launch(
-
                             arrayOf(
-
                                 Manifest.permission
                                     .ACCESS_FINE_LOCATION,
 
@@ -587,36 +512,42 @@ fun RegisterObservationScreen(
         ) {
 
             Text(
-                "Obtener ubicación actual"
+                text =
+                    if (
+                        latitude != null &&
+                        longitude != null
+                    ) {
+
+                        "Ubicación GPS obtenida ✓"
+
+                    } else {
+
+                        "Obtener ubicación actual (opcional)"
+                    }
             )
         }
 
         /*
-         * LATITUD
+         * COORDENADAS OBTENIDAS
          */
-        latitude?.let {
-                latitudeValue ->
+        if (
+            latitude != null &&
+            longitude != null
+        ) {
 
             Text(
                 text =
                     "Latitud: %.6f"
                         .format(
-                            latitudeValue
+                            latitude
                         )
             )
-        }
-
-        /*
-         * LONGITUD
-         */
-        longitude?.let {
-                longitudeValue ->
 
             Text(
                 text =
                     "Longitud: %.6f"
                         .format(
-                            longitudeValue
+                            longitude
                         )
             )
         }
@@ -625,18 +556,20 @@ fun RegisterObservationScreen(
          * FECHA
          */
         OutlinedTextField(
-
             value =
                 date,
 
             onValueChange = {
-                date = it
+
+                date =
+                    it
             },
 
             label = {
 
                 Text(
-                    "Fecha"
+                    text =
+                        "Fecha"
                 )
             },
 
@@ -652,7 +585,6 @@ fun RegisterObservationScreen(
          * OBSERVACIONES
          */
         OutlinedTextField(
-
             value =
                 observations,
 
@@ -665,7 +597,8 @@ fun RegisterObservationScreen(
             label = {
 
                 Text(
-                    "Observaciones"
+                    text =
+                        "Observaciones"
                 )
             },
 
@@ -678,10 +611,9 @@ fun RegisterObservationScreen(
         )
 
         /*
-         * VISTA PREVIA
+         * VISTA PREVIA DE LA FOTOGRAFÍA
          */
-        selectedBitmap?.let {
-                bitmap ->
+        selectedBitmap?.let { bitmap ->
 
             Text(
                 text =
@@ -692,7 +624,6 @@ fun RegisterObservationScreen(
             )
 
             Image(
-
                 bitmap =
                     bitmap
                         .asImageBitmap(),
@@ -716,7 +647,6 @@ fun RegisterObservationScreen(
          * SELECCIONAR FOTO
          */
         OutlinedButton(
-
             onClick = {
 
                 showPhotoDialog =
@@ -729,18 +659,18 @@ fun RegisterObservationScreen(
         ) {
 
             Text(
+                text =
+                    if (
+                        selectedBitmap ==
+                        null
+                    ) {
 
-                if (
-                    selectedBitmap ==
-                    null
-                ) {
+                        "Seleccionar fotografía"
 
-                    "Seleccionar fotografía"
+                    } else {
 
-                } else {
-
-                    "Cambiar fotografía"
-                }
+                        "Cambiar fotografía"
+                    }
             )
         }
 
@@ -756,17 +686,18 @@ fun RegisterObservationScreen(
          * GUARDAR
          */
         Button(
-
             onClick = {
 
                 /*
                  * CONVERTIR FOTO A BASE64
+                 *
+                 * Aquí vuelve a reducirse mediante
+                 * ImageUtils antes de enviarse a Firebase.
                  */
                 val imageBase64 =
 
                     selectedBitmap
-                        ?.let {
-                                bitmap ->
+                        ?.let { bitmap ->
 
                             ImageUtils
                                 .bitmapToBase64(
@@ -776,7 +707,7 @@ fun RegisterObservationScreen(
                         ?: ""
 
                 /*
-                 * CREAR REGISTRO
+                 * CREAR OBJETO
                  */
                 val birdObservation =
                     BirdObservation(
@@ -794,6 +725,9 @@ fun RegisterObservationScreen(
                             location
                                 .trim(),
 
+                        /*
+                         * GPS opcional.
+                         */
                         latitude =
                             latitude
                                 ?: 0.0,
@@ -814,6 +748,10 @@ fun RegisterObservationScreen(
                             imageBase64
                     )
 
+                /*
+                 * ENVIAR A MAINACTIVITY
+                 * PARA GUARDAR EN FIRESTORE
+                 */
                 onSaveClick(
                     birdObservation
                 )
@@ -823,8 +761,13 @@ fun RegisterObservationScreen(
                 Modifier
                     .fillMaxWidth(),
 
+            /*
+             * CAMPOS OBLIGATORIOS
+             *
+             * GPS, fotografía y observaciones
+             * son opcionales.
+             */
             enabled =
-
                 species
                     .isNotBlank() &&
 
@@ -844,18 +787,13 @@ fun RegisterObservationScreen(
                         location
                             .isNotBlank() &&
 
-                        latitude !=
-                        null &&
-
-                        longitude !=
-                        null &&
-
                         date
                             .isNotBlank()
         ) {
 
             Text(
-                "Guardar avistamiento"
+                text =
+                    "Guardar avistamiento"
             )
         }
 
@@ -863,7 +801,6 @@ fun RegisterObservationScreen(
          * REGRESAR
          */
         OutlinedButton(
-
             onClick =
                 onBackClick,
 
@@ -873,8 +810,256 @@ fun RegisterObservationScreen(
         ) {
 
             Text(
-                "Regresar"
+                text =
+                    "Regresar"
             )
         }
     }
+}
+
+/*
+ * ==========================================================
+ * CARGAR IMAGEN DE FORMA SEGURA
+ * ==========================================================
+ *
+ * Evita cargar una fotografía enorme a resolución completa.
+ */
+private fun loadReducedBitmap(
+    context: android.content.Context,
+    uri: Uri,
+    maxDimension: Int = 1200
+): Bitmap? {
+
+    return try {
+
+        /*
+         * ANDROID 9 O SUPERIOR
+         */
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.P
+        ) {
+
+            val source =
+                ImageDecoder
+                    .createSource(
+                        context
+                            .contentResolver,
+                        uri
+                    )
+
+            ImageDecoder
+                .decodeBitmap(
+                    source
+                ) { decoder, info, _ ->
+
+                    val originalWidth =
+                        info.size.width
+
+                    val originalHeight =
+                        info.size.height
+
+                    val largestDimension =
+                        maxOf(
+                            originalWidth,
+                            originalHeight
+                        )
+
+                    /*
+                     * Solo redimensiona si la imagen
+                     * supera el máximo permitido.
+                     */
+                    if (
+                        largestDimension >
+                        maxDimension
+                    ) {
+
+                        val scale =
+                            maxDimension
+                                .toFloat() /
+                                    largestDimension
+                                        .toFloat()
+
+                        val newWidth =
+                            (
+                                    originalWidth *
+                                            scale
+                                    )
+                                .toInt()
+                                .coerceAtLeast(1)
+
+                        val newHeight =
+                            (
+                                    originalHeight *
+                                            scale
+                                    )
+                                .toInt()
+                                .coerceAtLeast(1)
+
+                        decoder
+                            .setTargetSize(
+                                newWidth,
+                                newHeight
+                            )
+                    }
+
+                    decoder.allocator =
+                        ImageDecoder
+                            .ALLOCATOR_SOFTWARE
+                }
+
+        } else {
+
+            /*
+             * ANDROID 8 O ANTERIOR
+             *
+             * Primero obtenemos las dimensiones sin
+             * cargar toda la imagen a memoria.
+             */
+            val optionsBounds =
+                BitmapFactory.Options()
+                    .apply {
+
+                        inJustDecodeBounds =
+                            true
+                    }
+
+            context
+                .contentResolver
+                .openInputStream(
+                    uri
+                )
+                ?.use { inputStream ->
+
+                    BitmapFactory
+                        .decodeStream(
+                            inputStream,
+                            null,
+                            optionsBounds
+                        )
+                }
+
+            /*
+             * Calculamos cuánto reducir.
+             */
+            var sampleSize =
+                1
+
+            while (
+                optionsBounds.outWidth /
+                sampleSize >
+                maxDimension ||
+
+                optionsBounds.outHeight /
+                sampleSize >
+                maxDimension
+            ) {
+
+                sampleSize *=
+                    2
+            }
+
+            val options =
+                BitmapFactory.Options()
+                    .apply {
+
+                        inSampleSize =
+                            sampleSize
+                    }
+
+            context
+                .contentResolver
+                .openInputStream(
+                    uri
+                )
+                ?.use { inputStream ->
+
+                    BitmapFactory
+                        .decodeStream(
+                            inputStream,
+                            null,
+                            options
+                        )
+                }
+        }
+
+    } catch (
+        exception: Exception
+    ) {
+
+        exception
+            .printStackTrace()
+
+        null
+    }
+}
+
+/*
+ * ==========================================================
+ * REDUCIR BITMAP PARA LA VISTA PREVIA
+ * ==========================================================
+ */
+private fun resizeBitmapForPreview(
+    bitmap: Bitmap,
+    maxDimension: Int = 1200
+): Bitmap {
+
+    val width =
+        bitmap.width
+
+    val height =
+        bitmap.height
+
+    val largestDimension =
+        maxOf(
+            width,
+            height
+        )
+
+    /*
+     * Si ya es pequeña, no hacemos nada.
+     */
+    if (
+        largestDimension <=
+        maxDimension
+    ) {
+
+        return bitmap
+    }
+
+    /*
+     * Calcular escala proporcional.
+     */
+    val scale =
+        maxDimension
+            .toFloat() /
+                largestDimension
+                    .toFloat()
+
+    val newWidth =
+        (
+                width *
+                        scale
+                )
+            .toInt()
+            .coerceAtLeast(1)
+
+    val newHeight =
+        (
+                height *
+                        scale
+                )
+            .toInt()
+            .coerceAtLeast(1)
+
+    /*
+     * Crear Bitmap reducido.
+     */
+    return Bitmap
+        .createScaledBitmap(
+            bitmap,
+            newWidth,
+            newHeight,
+            true
+        )
 }
