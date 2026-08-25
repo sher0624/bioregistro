@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "BioRegistro"
 include(":app")
 include(":tv")
+include(":shared")

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "212776153701",
+    "project_id": "bioregistro-32b4a",
+    "storage_bucket": "bioregistro-32b4a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:212776153701:android:958a51a4ebb10a5fa14c8c",
+        "android_client_info": {
+          "package_name": "com.example.bioregistro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBQYeQDYtRJBZlV7c8AOwOIPdryig-xI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
